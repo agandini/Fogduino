@@ -8,7 +8,7 @@ MQTT: gestione del prototipo da remoto ( o una serie di essi ), trasmissione dat
 
 - ESP8266 (ESP32) NodeMCU
 - PC Fan (7x7cm, 12v,0,4A; in test)
-- Resistenza in lega (in testing diversi valori di Ohm, lunghezze e dimensioni per ottimale riscaldamento del liquido. Leghe di metallo in considerazione: Accialo 316L, khantal A1, Ni80 in diversi AWG)
+- Resistenza in lega (in testing diversi valori di Ohm, leghe di metalli, lunghezze e dimensioni per ottimale riscaldamento del liquido)
 - 3x Relè 5VDC JQC-3FF-S-Z
 - Pompa liquido (in testing, forse non necessaria)
 
