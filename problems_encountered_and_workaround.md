@@ -3,6 +3,7 @@
 ## Lato Hardware
 - Inizialmente, avrei voluto poter calcolare quanto la coil sia stata calda misurando la sua variazione di resistenza rispetto alla temperatura ambiente dalla quale si parte (coefficiente di temperatura).
 Purtoppo dato che la variazione è davvero minima ( millesimi di ohm) e l'idea che prevedeva di usare l'esp32 come un [ohmmetro](https://create.arduino.cc/projecthub/iasonas-christoulakis/how-to-make-an-arduino-ohm-meter-90fda8) non è in grado di leggere sia varazioni così piccole che leggere proprio resistenze dal valore così basso (ho testato con una resistenza da circa 1 ohm ottendo scarsi risultati, e il surriscaldamento della stessa), è molto difficile poter calcolare la temperatura approssimativa in questo modo.
+  - inoltre la resistenza dovrebbe venire attraversata da una corrente a circa 10A e 12v, anche la circuiteria si andrebbe a complicare per poter escludere l'alimentazione per il tempo necessario alla lettura della variazione.
 -> come workaround solution intendo usare un sensore di temperatura ds18b20 posto dopo la resistenza, calcolando quindi la temperatura dell'aria che lo investe.
 
 - Ventola: uso una vecchia ventola per processori desktop, con 4 pin (+, - , pwm, rpm) che controllo con il pin pwm e leggo come "feedback" dal pin rpm le pulsazioni di quando un giro della ventola viene effettuato(non sono sicuro sia 1 giro, alcuni modelli di ventole mandano 2 impulsi ogni rotazione).
