@@ -1,5 +1,9 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+#define ONE_WIRE_BUS 15
 
 // variabili di conessione wifi/mqtt
 const char* ssid = "Redmi 8T di Andrea";
@@ -11,21 +15,31 @@ const int pinRelayCoil=17; //relè resistenza
 const int pinTemp=15;     //sensore b18 temperatura 
 const int pinFanPWM=27;   //pwm verso il fan
 const int pinFanRPM=34;   //rpm dal fan
-const int pinLDR=35;      //fotoresistore
+const int pinLR=35;      //fotoresistore
+
+//variabili gestione temp con onewire
+OneWire oneWire(pinTemp);
+DallasTemperature sensors (&oneWire);
+
+unsigned long start_time;
+//gestione pwm ventola
+int PWM_FREQUENCY = 25000; 
+int PWM_CHANNEL = 0; 
+int PWM_RESOUTION = 8; //duty cycle con 2^8 (0 - 255)
+int GPIOPIN = 15 ; 
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-long lastMsg,last,lastdata= 0;
+long lastMsg,last 0;
 char msg[100];
-int fanpwm,fanrpm,coiltemp=0;
+int fanpwm,fanrpm,light,lightRef,count=0;
+float temp,tempRef=0;
 bool fan=false;
 bool coil=false;
 bool isOn=false;
 bool firstStart=true;
 bool mantenimento=false;
-int touch=0;
-int temp=0; 
 
 void setup_wifi() {
   delay(10);
@@ -113,26 +127,43 @@ void reconnect() {
   }
 }
 
-void setup() {
-  Serial.begin(115200);
-  setup_wifi();
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
-  TaskHandle_t Task1;
-   xTaskCreatePinnedToCore(
-    mantieniErogazione,      // Function that should be called
-    "eroga fumo",    // Name of the task (for debugging)
-    1000,               // Stack size (bytes)
-    NULL,               // Parameter to pass
-    1,                  // Task priority
-    &Task1,               // Task handle
-    0);         // Core you want to run the task on (0 or 1)
-}
+void firstStart(){
+     //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò di piu la coil
+        setPWM(fanpwm=50);
+        digitalWrite(pinRelayCoil, HIGH);
+        Serial.println("Preriscaldamento coil, fan al : %d%s",fanpwm,"%");
+        delay(5000);
+        digitalWrite(pinRelayCoil,LOW);
+        Serial.println("Ho spento la coil dopo il preriscaldamento");
+        mantenimento=true;
+  }
+int getLight(){ //restituisce il valore letto in centesimi
+      return map(analogRead(pinLR),0,4096,0,100);
+  }
 
-void pubblicaDati(){  // invia tramite mqtt dati di stato
+float getAirTemp(){
+    sensors.requestTemperatures();
+    float C=sensors.getTempCByIndex(0);// questo tipo di sensore può comunicare come una sorta di I2C, io ne uso uno quindi chiamo il primo
+    return C;
+  }
   
-  if (millis()- lastdata > 4000 ) {
-    lastdata = millis();
+int getRpm(){
+    start_time=millis();
+    count=0; //pulisco contatore prima di attesa
+    while((millis() - start_time)<=500){} //dopo 1/2 secondo
+    rpm=count*60 ;//ho ricevuto 2 segnali per giro del fan, moltiplico per 60 e ho rpm
+    return rpm;
+  }
+ 
+void setPWM(int pwmPerc){ // parametro come percentuale
+      ledcWrite(PWM_CHANNEL,map(pwmPerc,0,100,0,255));
+  }
+
+void pubblicaDati(){  // invia tramite mqtt dati di stato ogni 4 secondi 
+   static unsigned long lastdata = 0;
+   static unsigned long now= millis();
+  if (now- lastdata > 4000 ) {
+    lastdata = now;
      //invia % pwm e rpm della ventola
     snprintf (msg, 100, "%d" ,fanpwm);
     Serial.print("Pub fan pwm: ");
@@ -152,7 +183,8 @@ void pubblicaDati(){  // invia tramite mqtt dati di stato
     
   }
 void pubblicaStatus(){
-  long now = millis();
+   static unsigned long lastMsg = 0;
+   static unsigned long now= millis();
   if (now - lastMsg > 4000 ) {
     lastMsg = now;
     snprintf (msg, 100, "Status: isOn: %d, fan: %d, coil: %d" ,isOn,fan,coil);
@@ -163,10 +195,15 @@ void pubblicaStatus(){
   }
 
 void aggiornaHW(){ //aggiorna i dati letti dai sensori, quindi rpm, temp, fotoresistenza.
-    //inseriee il codice per sapere rpm
-    Serial.println("sto aggiornando i valori letti dai sensori!");
-    //lettura da sens temperatura e luce
-    
+   static unsigned long last = 0;
+   static unsigned long now= millis();
+   if (now- last > 700 ) {
+    last=now;
+    fanrpm=getRpm();
+    light=getLight();
+    temp=getAirTemp();
+    Serial.println("Ho aggiornato i valori letti dai sensori!");
+    }
   }
 
 void flood(){ //uso il servo per "pucciare" la coil e rifornirla di liquido da evaporare
@@ -189,33 +226,43 @@ void mantieniErogazione(void * parameter){
           vTaskDelay(20);
       }
   }
-  
-void loop() {
 
+void counterRPM(){count++;} //procedura chiamata da interrupt su tachometer della ventola
+
+void setup() {
+  Serial.begin(115200);
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+  sensors.begin();
+  
+  //salvo variabili ambientali di riferimento
+  lightRef=getLight();
+  tempRef=getAirTemp();
+  
+  //Settaggio per lettura rpm e pwm ventola
+  pinMode(26,INPUT_PULLUP); //oltre al pullup lato HW, se setto il pin a pullup interno i valori sembrano più precisi
+  ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOUTION);
+  ledcAttachPin(GPIOPIN, PWM_CHANNEL);
+  attachInterrupt(digitalPinToInterrupt(26),counterRPM,RISING); //tramite interrupt rilevo segnale da "tachimetro" del fan
+  
+  TaskHandle_t Task1; //creazione task pinnato al secondo core
+   xTaskCreatePinnedToCore(
+    mantieniErogazione,      // Function that should be called
+    "eroga fumo",    // Name of the task (for debugging)
+    1000,               // Stack size (bytes)
+    NULL,               // Parameter to pass
+    1,                  // Task priority
+    &Task1,               // Task handle
+    0);         // Core you want to run the task on (0 or 1)
+}
+
+void loop() {
   if (!client.connected()) {
     reconnect();
   }
-  client.loop();
-
-  //####################  simulazione 1#######  
-  if(firstStart){ //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò di piu la coil
-        fanpwm=125;
-        //comando per scrittura pwm su fan
-        digitalWrite(pinRelayCoil, HIGH);
-        Serial.println("riscaldo la coil la prima volta, circa 8 secondi");
-        delay(8000);
-        digitalWrite(pinRelayCoil,LOW);
-        Serial.println("Ho spento la coil dopo il preriscaldamento");
-        mantenimento=true;
-        firstStart=false;
-    }
-
-  if (millis()- last > 1000 ) {
-    last=millis();
-    aggiornaHW();
-  }
-  
+  client.loop(); 
+  aggiornaHW();
   pubblicaStatus();
   pubblicaDati();
-  
 }
