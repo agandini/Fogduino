@@ -11,7 +11,10 @@ Purtoppo dato che la variazione è davvero minima ( millesimi di ohm) e l'idea c
 
 - Alimentazione liquido: la coil andrà inevitabilmente a esaurire il liquido da evaporare nel tempo, quindi per bagnarla avevo inizialmente pensato e costruito una piccola pompa a partire da un motorino a 5v.
 Purtoppo mi è difficile gestirlo e manderebbe troppo liquido sulla resistenza, quindi l'idea per bagnare la coil è quella di "legarla" a un servomotore, che ogni tot tempo ruota di 90 gradi la resistenza "pucciandola" in una vaschettina contenete liquido sotto di essa.
-//da implementare
+-Update: dopo un qualche prova, anche usare un servo per bagnare ogni tot la resistenza non è il massimo, anche perchè complica la reale costruzione dei cavi in quanto serve un pò di gioco per poterla muovere senza avere problemi. Inoltre, immergerla farebbe perdere molto calore accumulato riducendo nel tempo i vantaggi del "pwm" ottenuto con il relay.
+Ho deciso infine per questo progetto di non gestire l'alimentazione, ovvero manualmente bagnare la coil prima di ogni utilizzo (comunque una volta impregnata, dura diverse decine di secondi). Utilizzare un serbatoio e una piccola pompa, o un sistema che faccia gocciolare sulla resistenza periodicamente un pò di liquido sarebbe un idea comunque valida da implementare per portare avanti il progetto.
+
+-Problema relay: inizialmente non riuscivo a gestire bene il relè associato alla resistenza (che uso in quanto scorrono circa 10 A di corrente verso essa), in quan to da esp32 l'uscita digitale arriva a 3.3v, mentre generalmente questi relay funzionano a 5v con un trigger oltre i 4v. Fortunatamente, dal datasheet del mio modello [JQC-3FF-S-Z](https://en.tonglingrelay.com/product/1063.html), è possibile usarli con 3.3v il che mi ha risparmiato di dover comprare altri relè adeguati, o alla peggio usare un vecchio clone di arduino come "step-up" del segnale in uscita dall'esp32.
 
 ## Lato Software
 - dual core: ho pensato di sfruttare i due core dell'esp32 per poter far girare sul secondo core la routine che mantiene il fumo in erogazione, ovvero setta la ventola a una certa velocita, mantiene la corrente sulla resistenza e ogni tot secondi la bagna. Ho un problema nella gestione del watchdog, mi obbliga a inserire un dealy per evitare di fermare la board.
