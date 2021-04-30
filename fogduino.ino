@@ -6,7 +6,7 @@
 #define ONE_WIRE_BUS 15
 
 // variabili di conessione wifi/mqtt
-const char* ssid = "Redmi 8T di Andrea";
+const char* ssid = "FASTWEB- AG";
 const char* password = "A123456789";
 const char* mqtt_server = "broker.hivemq.com";
 
@@ -14,7 +14,7 @@ const char* mqtt_server = "broker.hivemq.com";
 const int pinRelayCoil=17; //relè resistenza
 const int pinTemp=15;     //sensore b18 temperatura 
 const int pinFanPWM=27;   //pwm verso il fan
-const int pinFanRPM=34;   //rpm dal fan
+const int pinFanRPM=26;   //rpm dal fan
 const int pinLR=35;      //fotoresistore
 
 //variabili gestione temp con onewire
@@ -26,7 +26,6 @@ unsigned long start_time;
 int PWM_FREQUENCY = 25000; 
 int PWM_CHANNEL = 0; 
 int PWM_RESOUTION = 8; //duty cycle con 2^8 (0 - 255)
-int GPIOPIN = 15 ; 
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -34,8 +33,6 @@ PubSubClient client(espClient);
 char msg[100];
 int fanpwm,fanrpm,light,lightRef,count=0;
 float temp,tempRef=0;
-bool fan=false;
-bool coil=false;
 bool isOn=false;
 bool coldStart=true;
 volatile bool mantenimento=false;
@@ -43,6 +40,7 @@ unsigned long last = 0;
 unsigned long lastMsg = 0;
 unsigned long lastdata = 0;
 unsigned long lastOn =0;
+
 
 void setup_wifi() {
   delay(10);
@@ -79,37 +77,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
     fanpwm=mex;
    }
   else{
-  switch(mex){
-      case -1: //spegni tutto
-                    isOn=false;
-                    fan=false;
-                    coil=false;
+    switch(mex){
+        case -1: //spegni tutto
+                      isOn=false;
+                      digitalWrite(pinRelayCoil,LOW);
+                      break;
+        case 1: //accendi
+                      isOn=true;
+                      break;                   
+        default: Serial.println("comando non valido");
                     break;
-      case 1: //accendi
-                    isOn=true;
-                    break;
-      case 2: //accendi fan
-                    if(isOn)fan=true;
-                    break;
-      case 3: //spegni fan
-                    fan=false;
-                    if(isOn) coil=false; //se spengo ventola quando sono on, spengo anche la coil !! danger  flame !!
-                    break;
-      case 4: //accendi coil solo se anche fan è accesa (evitare surriscaldamenti)
-                    if (fan) coil=true;
-                    break;
-      case 5:  //spegni coil 
-                  coil=false;
-                  break;
-      case 10:   fanpwm=1; //testing puropuse
-                  break;
-      case 11:   fanpwm=70; //testing puropuse
-                  break; 
-      case 12:   fanpwm=300; //testing puropuse
-                  break;                    
-      default: Serial.println("comando non valido");
-                  break;
-    }
+      }
   }
   Serial.println();
 }
@@ -142,7 +120,7 @@ void reconnect() {
 
 void firstStart(){
      //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò di piu la coil
-        fanpwm=50;
+        fanpwm=10;
         setPWM(fanpwm);
         digitalWrite(pinRelayCoil, HIGH);
         Serial.print("Preriscaldamento coil, fan al :");Serial.println(fanpwm);
@@ -152,6 +130,16 @@ void firstStart(){
         mantenimento=true;
   }
 
+void aggiornaHW(){ //aggiorna i dati letti dai sensori, quindi rpm, temp, fotoresistenza.
+   if (millis()- last > 200 ) {
+    last=millis();
+    light=getLight();
+    temp=getAirTemp();
+    fanrpm=getRpm();
+    //Serial.println("Ho aggiornato i valori letti dai sensori!");
+    }
+  }
+  
 int getLight(){ //restituisce il valore letto in centesimi
       return map(analogRead(pinLR),0,4096,0,100);
   }
@@ -165,8 +153,8 @@ float getAirTemp(){
 int getRpm(){
     start_time=millis();
     count=0; //pulisco contatore prima di attesa
-    while((millis() - start_time)<=500){} //dopo 1/2 secondo
-    return count*60 ;//ho ricevuto 2 segnali per giro del fan, moltiplico per 60 e ho rpm
+    while((millis() - start_time)<=250){} //dopo 1/4 secondo
+    return count*120 ;//ho ricevuto 2 segnali per giro del fan, moltiplico per 120 e ho rpm
   }
  
 void setPWM(int pwmPerc){ // parametro come percentuale
@@ -175,21 +163,21 @@ void setPWM(int pwmPerc){ // parametro come percentuale
   }
 
 void pubblicaDati(){  // invia tramite mqtt dati di stato ogni 4 secondi 
-  if (millis()- lastdata > 4000 ) {
+  if (millis()- lastdata > 3000 ) {
     lastdata = millis();
      //invia % pwm e rpm della ventola
     snprintf (msg, 100, "%d" ,fanpwm);
     Serial.print("Pub fan pwm: ");
-    Serial.println(msg);
+    Serial.print(msg);
     client.publish("fogduino/fan/pwm", msg);
 
     snprintf (msg, 100, "%d" ,fanrpm);
-    Serial.print("Pub fan rpm: ");
+    Serial.print(" Pub fan rpm: ");
     Serial.println(msg);
     client.publish("fogduino/fan/rpm", msg);
     //invia resistenza della coil
-    snprintf (msg, 100, "%d" ,temp);
-    Serial.print("Pub coil activation: ");
+    snprintf (msg, 100, "%.1f" ,temp);
+    Serial.print("Pub AirTemp: ");
     Serial.println(msg);
     client.publish("fogduino/coil", msg);
     }
@@ -205,15 +193,6 @@ void pubblicaStatus(){
     }
   }
 
-void aggiornaHW(){ //aggiorna i dati letti dai sensori, quindi rpm, temp, fotoresistenza.
-   if (millis()- last > 700 ) {
-    last=millis();
-    fanrpm=getRpm();
-    light=getLight();
-    temp=getAirTemp();
-    Serial.println("Ho aggiornato i valori letti dai sensori!");
-    }
-  }
 
 void flood(){ //uso il servo per "pucciare" la coil e rifornirla di liquido da evaporare
       //spostati di 90 gradi, aspetta 1 secondo, poi raddrizza
@@ -226,11 +205,15 @@ void mantieniErogazione(void * parameter){
            //mantengo il fumo: ventola al massimo a meno che la temperatura non stia calando, ogni tot tempo flood sulla coil (che deve essere prima spenta)
           
           //#### debug
-
-          Serial.print("Sto mantenendo la coil!!");Serial.println(fanpwm);
+          setPWM(fanpwm);
+          digitalWrite(pinRelayCoil,HIGH);
+          Serial.print("#######FAN SET TO !!");Serial.println(fanpwm);
+          delay(3000);
+          digitalWrite(pinRelayCoil,LOW);
+          vTaskDelay(500);
           /*Serial.print("Task1 running on core ");
           Serial.println(xPortGetCoreID());*/
-           vTaskDelay(500); //necessario per watchdog di rtos altrimenti la task occupa tutte le risorse di cpu
+            //necessario per watchdog di rtos altrimenti la task occupa tutte le risorse di cpu
           }
           vTaskDelay(20);
       }
@@ -252,9 +235,11 @@ void setup() {
   //Settaggio per lettura rpm e pwm ventola
   pinMode(26,INPUT_PULLUP); //oltre al pullup lato HW, se setto il pin a pullup interno i valori sembrano più precisi
   ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOUTION);
-  ledcAttachPin(GPIOPIN, PWM_CHANNEL);
+  ledcAttachPin(pinFanPWM, PWM_CHANNEL);
   attachInterrupt(digitalPinToInterrupt(26),counterRPM,RISING); //tramite interrupt rilevo segnale da "tachimetro" del fan
-  
+
+  pinMode(pinRelayCoil, OUTPUT);
+
   TaskHandle_t Task1; //creazione task pinnato al secondo core
    xTaskCreatePinnedToCore(
     mantieniErogazione,      // Function that should be called
@@ -266,7 +251,7 @@ void setup() {
     0);         // Core you want to run the task on (0 or 1)
     
     reconnect();
-    //firstStart(); moved to ison changing
+    firstStart(); //moved to is on changing
 }
 
 void loop() {
