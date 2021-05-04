@@ -32,9 +32,9 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 char msg[100];
-int fanpwm,fanrpm,light,lightRef=0;
+int fanpwm,fanrpm=0;
 volatile int count=0;
-float temp,tempRef=0;
+float light,lightRef,temp,tempRef=0;
 volatile bool isOn,fire,mantenimento=false;
 bool coldStart=true;
 
@@ -75,7 +75,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
   int mex=messaggio.toInt(); //mi aspetto messaggi numerici
-  if(strcmp(topic,"fogduino/setpwm")==0){
+  if(strcmp(topic,"fogduino/setpwm")==0 && isOn){
     fanpwm=mex;
    }
   else{
@@ -122,12 +122,12 @@ void reconnect() {
 
 void firstStart(){
      //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò di piu la coil
-        fanpwm=10;
+        fanpwm=20;
         setPWM(fanpwm);
-        digitalWrite(pinRelayCoil, HIGH);
+        digitalWrite(pinRelayCoil, LOW);
         Serial.print("Preriscaldamento coil, fan al :");Serial.println(fanpwm);
-        delay(5000);
-        digitalWrite(pinRelayCoil,LOW);
+        delay(4000);
+        digitalWrite(pinRelayCoil,HIGH);
         Serial.println("Ho spento la coil dopo il preriscaldamento");
         mantenimento=true;
         coldStart=false;
@@ -143,7 +143,7 @@ void aggiornaHW(){ //aggiorna i dati letti dai sensori, quindi rpm, temp, fotore
     }
   }
   
-int getLight(){ //restituisce il valore letto in centesimi
+float getLight(){ //restituisce il valore letto in centesimi
       return map(analogRead(pinLR),0,4096,0,100);
   }
 
@@ -184,40 +184,53 @@ void pubblicaDati(){  // invia tramite mqtt dati di stato ogni 4 secondi
     Serial.println(msg);
     client.publish("fogduino/coil", msg);
 
-    snprintf (msg, 100, "%f" ,tempRef);
-    client.publish("fogduino/tempref", msg);
+    snprintf (msg, 100, "%.1f" ,tempRef);
+    Serial.print("Pub TempREF: ");
+    Serial.println(msg);
+    client.publish("fogduino/tempRef", msg);
+    
     snprintf (msg, 100, "%f" ,lightRef);
+    Serial.print("Pub lightRef: ");
+    Serial.println(msg);
     client.publish("fogduino/lightRef", msg);
+    
     snprintf (msg, 100, "%f" ,light);
+    Serial.print("Pub light: ");
+    Serial.println(msg);
     client.publish("fogduino/light", msg);
     }
     
   }
-void pubblicaStatus(){
-  if (millis() - lastMsg > 4000 ) {
-    lastMsg = millis();
-    snprintf (msg, 100, "Status: isOn: %d, " ,isOn);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish("fogduino/status", msg);
-    }
-  }
-
+  
 void mantieniErogazione(void * parameter){
         //se attivo il mantenimento allora eseguo
+        int msecOn,msecOff=1000;
+        int autopwm=50;
       for(;;){
           if(isOn && mantenimento){ //se arriva la disattivazione del mantenimento, mi autokillo
-           //mantengo il fumo: ventola al massimo a meno che la temperatura non stia calando, ogni tot tempo flood sulla coil (che deve essere prima spenta)
-          
-          //#### debug
-          setPWM(fanpwm);
-          digitalWrite(pinRelayCoil,HIGH);
-          Serial.print("#######FAN SET TO !!");Serial.println(fanpwm);
-          delay(3000);
-          digitalWrite(pinRelayCoil,LOW);
-          vTaskDelay(500); //necessario per watchdog di rtos altrimenti la task occupa tutte le risorse di cpu
+           //mantengo il fumo: ventola al massimo a meno che la temperatura non stia calando
+             Serial.println(tempRef-temp);
+            if(temp-tempRef<1){ 
+              autopwm=50;
+              msecOn=2000;
+              msecOff=300;
+            }else if(temp-tempRef<2){
+              autopwm=70;
+              msecOn=2000;
+              msecOff=500;
+            }else {
+              autopwm=100;
+              msecOn=2000;
+              msecOff=1000;
+              }
+            fanpwm=autopwm;
+            setPWM(fanpwm);
+            digitalWrite(pinRelayCoil,HIGH);          
+            vTaskDelay(msecOff); 
+            digitalWrite(pinRelayCoil,LOW);
+            vTaskDelay(msecOn);
           }
-          vTaskDelay(20);
+          vTaskDelay(20);//necessario per watchdog di rtos altrimenti la task occupa tutte le risorse di cpu
       }
   }
 
@@ -236,14 +249,15 @@ void setup() {
   tempRef=getAirTemp();
   
   //Settaggio per lettura rpm e pwm ventola
-  pinMode(26,INPUT_PULLUP); //oltre al pullup lato HW, se setto il pin a pullup interno i valori sembrano più precisi
+  pinMode(26,INPUT_PULLUP);//oltre al pullup lato HW, se setto il pin a pullup interno i valori sembrano più precisi
   ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOUTION);
   ledcAttachPin(pinFanPWM, PWM_CHANNEL);
   attachInterrupt(digitalPinToInterrupt(26),counterRPM,RISING); //tramite interrupt rilevo segnale da "tachimetro" del fan
   attachInterrupt(digitalPinToInterrupt(25),flame,RISING); //tramite interrupt rilevo segnale da flame sensor
 
   pinMode(pinRelayCoil, OUTPUT);
-
+  digitalWrite(pinRelayCoil,HIGH);
+  
   TaskHandle_t Task1; //creazione task pinnato al secondo core
    xTaskCreatePinnedToCore(
     mantieniErogazione,      // Function that should be called
@@ -263,7 +277,6 @@ void loop() {
   if (!client.connected()) {
     mantenimento=false; //se perdo connessione smetto di erogare
     reconnect();
-    mantenimento=true; //quando riconesso, ricomincio (check se da fare preriscaldamento)
   }
   client.loop(); 
   aggiornaHW();
@@ -272,11 +285,13 @@ void loop() {
     if(coldStart) firstStart();
     pubblicaDati();
   }
+  
   if(fire){
     isOn=false;
     setPWM(fanpwm=100);
     digitalWrite(pinRelayCoil,LOW);
     client.publish("fogduino/status", "Fiamma rilevata! Richiedo aiuto!");
+    client.unsubscribe("fogduino/ctrl");
     for(;;){ // stallo fino a riavvio
       client.publish("fogduino/status", "Stall on max fan mode...");
       delay(3000);
