@@ -39,9 +39,8 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 char msg[100];
-int fanpwm,fanrpm=0;
-volatile int count=0;
-float light,lightRef,temp,tempRef=0;
+volatile int fanpwm,count,fanrpm=0;
+volatile float light,lightRef,temp,tempRef=0;
 volatile bool isOn,fire,mantenimento=false;
 bool coldStart=true;
 
@@ -55,9 +54,9 @@ void setup_wifi() {
   delay(10);
   Serial.println();
   Serial.print("Mi connetto a ");
-  Serial.println(ssid);
+  Serial.println(SSID);
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(SSID, PASS);
 
   while (WiFi.status() != WL_CONNECTED) { //loppa finche non connesso
     delay(500);
@@ -88,10 +87,26 @@ void callback(char* topic, byte* payload, unsigned int length) {
         case -1: //spegni tutto
                       isOn=false;
                       digitalWrite(pinRelayCoil,LOW);
+					  client.publish("fogduino/status", "Mi sono spento!");
                       break;
         case 1: //accendi
                       isOn=true;
-                      break;                   
+					  client.publish("fogduino/status", "Mi sono acceso!");
+                      break; 
+		case 2: //spegni mantenimento 
+                      mantenimento=false;
+					  client.publish("fogduino/status", "Modalità manuale");
+                      break;
+		case 3: //accendi mantenimento
+                      mantenimento=true;
+					  client.publish("fogduino/status", "Modalità automatica");
+                      break;
+		case 4: //accendi relay
+                      if(!mantenimento) digitalWrite(pinRelayCoil,LOW);
+                      break;	
+		case 5: //spegni relay
+                      digitalWrite(pinRelayCoil,HIGH);
+                      break;					  
         default: Serial.println("comando non valido");
                     break;
       }
@@ -126,13 +141,16 @@ void reconnect() {
 
 void firstStart(){
      //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò la coil
-        fanpwm=20;
+        client.publish("fogduino/status", "Preriscaldamento in corso...");
+		fanpwm=30;
         setPWM(fanpwm);
         digitalWrite(pinRelayCoil, LOW);
         Serial.print("Preriscaldamento coil, fan al :");Serial.println(fanpwm);
         delay(4000);
         digitalWrite(pinRelayCoil,HIGH);
         Serial.println("Ho spento la coil dopo il preriscaldamento");
+		client.publish("fogduino/status", "Modalità mantenimento avviata");
+
         mantenimento=true;
         coldStart=false;
   }
@@ -244,7 +262,7 @@ void flame(){fire=true;}  //interrupt su sensore fiamma
 void setup() {
   Serial.begin(115200);
   setup_wifi();
-  client.setServer(mqtt_server, 1883);
+  client.setServer(MQTT_SERVER, 1883);
   client.setCallback(callback);
   sensors.begin();
   
