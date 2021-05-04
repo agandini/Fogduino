@@ -5,6 +5,17 @@
 
 #define ONE_WIRE_BUS 15
 
+//variabili di connessione
+#define SSID FASTWEB- AG
+#define PASS A123456789
+#define MQTT_SERVER broker.hivemq.com
+
+//gestione pwm ventola
+#define PWM_FREQUENCY 25000
+#define PWM_CHANNEL  0
+#define PWM_RESOUTION  8 //duty cycle con 2^8 (0 - 255)
+
+
 // variabili di conessione wifi/mqtt
 const char* ssid = "FASTWEB- AG";
 const char* password = "A123456789";
@@ -23,10 +34,6 @@ OneWire oneWire(pinTemp);
 DallasTemperature sensors (&oneWire);
 
 unsigned long start_time;
-//gestione pwm ventola
-int PWM_FREQUENCY = 25000; 
-int PWM_CHANNEL = 0; 
-int PWM_RESOUTION = 8; //duty cycle con 2^8 (0 - 255)
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -61,12 +68,10 @@ void setup_wifi() {
 
   Serial.println("");
   Serial.println("Connessione riuscita!");
- // Serial.println("IP address: ");
- // Serial.println(WiFi.localIP());
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
+  Serial.print("Ricevuto messaggio da [");
   Serial.print(topic);
   Serial.print("] ");
   String messaggio="";
@@ -95,7 +100,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void reconnect() {
-
   if(WiFi.status() != WL_CONNECTED){
     Serial.println("Connesione WiFi persa!");
     setup_wifi();
@@ -103,8 +107,8 @@ void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    String clientId = "ESP32Client-"; //crea id client mqtt
-    clientId += "espfogduino";      //clientId += String(random(0xffff), HEX);
+    String clientId = "ESP32Client-Fogduino"; //crea id client mqtt
+    //clientId += String(random(0xffff), HEX);
     // Attempt to connect
     if (client.connect(clientId.c_str(),NULL,NULL,"fogduino/status",1,true,"Connessione persa!Mi riconnetterò a breve...")) {
       Serial.println("connected"); // Once connected, publish an announcement...
@@ -114,14 +118,14 @@ void reconnect() {
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      Serial.println(" riprovo tra 5 secondi...");
       delay(5000);      
     }
   }
 }
 
 void firstStart(){
-     //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò di piu la coil
+     //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò la coil
         fanpwm=20;
         setPWM(fanpwm);
         digitalWrite(pinRelayCoil, LOW);
@@ -138,8 +142,7 @@ void aggiornaHW(){ //aggiorna i dati letti dai sensori, quindi rpm, temp, fotore
     last=millis();
     light=getLight();
     temp=getAirTemp();
-    fanrpm=getRpm();
-    //Serial.println("Ho aggiornato i valori letti dai sensori!");
+    fanrpm=getRpm(); //la getRPM "ruba" 250 ms circa di tempo, totale operaz. di aggiornamento HW circa 500ms
     }
   }
   
@@ -161,11 +164,10 @@ int getRpm(){
   }
  
 void setPWM(int pwmPerc){ // parametro come percentuale
-      if(pwmPerc>=0 && pwmPerc<=100)
-       ledcWrite(PWM_CHANNEL,map(pwmPerc,0,100,0,255));
+       ledcWrite(PWM_CHANNEL,map(constrain(pwmPerc,0,100),0,100,0,255));
   }
 
-void pubblicaDati(){  // invia tramite mqtt dati di stato ogni 4 secondi 
+void pubblicaDati(){  // invia tramite mqtt dati di stato ogni 3 secondi 
   if (millis()- lastdata > 3000 ) {
     lastdata = millis();
      //invia % pwm e rpm della ventola
@@ -178,7 +180,8 @@ void pubblicaDati(){  // invia tramite mqtt dati di stato ogni 4 secondi
     Serial.print(" Pub fan rpm: ");
     Serial.println(msg);
     client.publish("fogduino/fan/rpm", msg);
-    //invia resistenza della coil
+	
+    //invia temperatura attuale e prima rilevazione
     snprintf (msg, 100, "%.1f" ,temp);
     Serial.print("Pub AirTemp: ");
     Serial.println(msg);
@@ -189,6 +192,7 @@ void pubblicaDati(){  // invia tramite mqtt dati di stato ogni 4 secondi
     Serial.println(msg);
     client.publish("fogduino/tempRef", msg);
     
+	//invia luce attuale e prima rilevazione
     snprintf (msg, 100, "%f" ,lightRef);
     Serial.print("Pub lightRef: ");
     Serial.println(msg);
@@ -225,17 +229,17 @@ void mantieniErogazione(void * parameter){
               }
             fanpwm=autopwm;
             setPWM(fanpwm);
+			digitalWrite(pinRelayCoil,LOW);
+            vTaskDelay(msecOn);
             digitalWrite(pinRelayCoil,HIGH);          
             vTaskDelay(msecOff); 
-            digitalWrite(pinRelayCoil,LOW);
-            vTaskDelay(msecOn);
           }
           vTaskDelay(20);//necessario per watchdog di rtos altrimenti la task occupa tutte le risorse di cpu
       }
   }
 
 void counterRPM(){count++;} //procedura chiamata da interrupt su tachometer della ventola
-void flame(){fire=true;}
+void flame(){fire=true;}  //interrupt su sensore fiamma
 
 void setup() {
   Serial.begin(115200);
@@ -253,10 +257,11 @@ void setup() {
   ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOUTION);
   ledcAttachPin(pinFanPWM, PWM_CHANNEL);
   attachInterrupt(digitalPinToInterrupt(26),counterRPM,RISING); //tramite interrupt rilevo segnale da "tachimetro" del fan
+  
   attachInterrupt(digitalPinToInterrupt(25),flame,RISING); //tramite interrupt rilevo segnale da flame sensor
 
   pinMode(pinRelayCoil, OUTPUT);
-  digitalWrite(pinRelayCoil,HIGH);
+  digitalWrite(pinRelayCoil,HIGH); //default alto (relay interrotto)
   
   TaskHandle_t Task1; //creazione task pinnato al secondo core
    xTaskCreatePinnedToCore(
@@ -268,8 +273,8 @@ void setup() {
     &Task1,               // Task handle
     0);         // Core you want to run the task on (0 or 1)
     
-    reconnect();
-     //moved to is on changing
+	
+    reconnect(); //connetti a mqtt
 }
 
 void loop() {
