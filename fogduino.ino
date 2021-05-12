@@ -1,3 +1,7 @@
+/*
+This file is part of fogduino which is released under GPLv3 license.
+See file LICENSE  or go to https://github.com/agandini/fogduino/blob/main/LICENSE for full license details.
+*/
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <OneWire.h>
@@ -11,8 +15,8 @@
 #define PWM_RESOUTION 8 //duty cycle con 2^8 (0 - 255)
 
 // variabili di conessione wifi/mqtt
-const char * ssid = "FASTWEB- AG";
-const char * password = "A123456789";
+const char * ssid = "***";
+const char * password = "***";
 const char * mqtt_server = "broker.hivemq.com";
 
 //variabili gestione pin 
@@ -94,7 +98,9 @@ void callback(char * topic, byte * payload, unsigned int length) {
             client.publish("fogduino/status", "Modalità automatica");
             break;
         case 4: //accendi relay
-            if (!mantenimento) digitalWrite(pinRelayCoil, LOW);
+            if (!mantenimento && isOn){
+              digitalWrite(pinRelayCoil, LOW);
+            }
             break;
         case 5: //spegni relay
             digitalWrite(pinRelayCoil, HIGH);
@@ -140,7 +146,7 @@ void firstStart() {
     digitalWrite(pinRelayCoil, LOW);
     Serial.print("Preriscaldamento coil, fan al :");
     Serial.println(fanpwm);
-    delay(4000);
+    delay(2000);
     digitalWrite(pinRelayCoil, HIGH);
     Serial.println("Ho spento la coil dopo il preriscaldamento");
     client.publish("fogduino/status", "Modalità mantenimento avviata");
@@ -226,18 +232,18 @@ void mantieniErogazione(void * parameter) {
         if (isOn && mantenimento) { //se arriva la disattivazione del mantenimento, mi autokillo
             //mantengo il fumo: ventola al massimo a meno che la temperatura non stia calando
             Serial.println(tempRef - temp);
-            if (temp - tempRef < 1) {
+            if (temp - tempRef < 4) {
                 autopwm = 50;
-                msecOn = 2000;
-                msecOff = 300;
-            } else if (temp - tempRef < 2) {
-                autopwm = 70;
-                msecOn = 2000;
+                msecOn = 1000;
                 msecOff = 500;
+            } else if (temp - tempRef < 7) {
+                autopwm = 70;
+                msecOn = 1000;
+                msecOff = 900;
             } else {
                 autopwm = 100;
-                msecOn = 2000;
-                msecOff = 1000;
+                msecOn = 1000;
+                msecOff = 1300;
             }
             fanpwm = autopwm;
             setPWM(fanpwm);
@@ -307,7 +313,7 @@ void loop() {
     aggiornaHW();
 
     if (isOn) {
-        if (coldStart) firstStart();
+       // if (coldStart) firstStart();
         pubblicaDati();
     }
 
