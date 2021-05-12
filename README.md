@@ -20,8 +20,7 @@ Pubblicazione tramite mqtt di dati relativi alla riduzione di "visibilità" dell
 ![Disegno dello schema progetto](https://github.com/agandini/fogduino/blob/master/fogduino_bb.jpg?raw=true)
 
 <p align="center">
-  <img src="your_relative_path_here" width="350" title="hover text">
-  <img src="https://github.com/agandini/fogduino/blob/master/fogduino_bb.jpg" width="350" alt="accessibility text">
+  <img src="https://github.com/agandini/fogduino/blob/master/fogduino_bb.jpg" width="350" height="500" alt="accessibility text">
 </p>
 
 ## Links:
