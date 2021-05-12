@@ -19,6 +19,11 @@ Pubblicazione tramite mqtt di dati relativi alla riduzione di "visibilità" dell
 ## Schema
 ![Disegno dello schema progetto](https://github.com/agandini/fogduino/blob/main/fogduino_bb.jpg?raw=true)
 
+Note: la Coil è da circa 1.3 Ohm, applicando 12v otteniamo circa 9 A, quindi siamo sui 100W di potenza.\
+Non sono riuscito a reperire informazioni online riguardo a "cosa esca" fisicamente dall'uscita per contare gli rpm dalla ventola, ne a misurarla con un multimetro. Facendo un pò di prove, e inserendo le resistenze per creare un piccolo partitore riesco a leggere i valori su un max di circa 3v
+![Disegno partitore](https://github.com/agandini/fogduino/blob/main/part.png?raw=true)
+
+
 
 ## Links:
   - Board usata [ESP32](https://www.amazon.it/AZDelivery-sviluppo-successivo-versione-compatibile/dp/B08BTQ57ZV/ref=sr_1_5?__mk_it_IT=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=7S1HMAXV0GP4&dchild=1&keywords=esp32+azdelivery&qid=1616601484&sprefix=esp32+azd%2Caps%2C245&sr=8-5) (Il venditore ora propone una versione "graficamente" diversa, ma dovrebbe essere la stessa)
