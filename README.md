@@ -17,10 +17,10 @@ Pubblicazione tramite mqtt di dati relativi alla riduzione di "visibilità" dell
 - Vecchio alimentatore da PC 
 
 ## Schema
-![Disegno dello schema progetto](https://github.com/agandini/fogduino/blob/master/fogduino_bb.jpg?raw=true)
+![Disegno dello schema progetto](https://github.com/agandini/fogduino/blob/main/fogduino_bb.jpg?raw=true)
 
 <p align="center">
-  <img src="https://github.com/agandini/fogduino/blob/master/fogduino_bb.jpg" width="250"  alt="accessibility text">
+  <img src="https://github.com/agandini/fogduino/blob/main/fogduino_bb.jpg" width="250"  alt="accessibility text">
 </p>
 
 ## Links:
