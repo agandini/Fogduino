@@ -21,7 +21,7 @@ Pubblicazione tramite mqtt di dati relativi alla riduzione di "visibilità" dell
 
 Note: la Coil è da circa 1.3 Ohm, applicando 12v otteniamo circa 9 A, quindi siamo sui 100W di potenza.\
 Non sono riuscito a reperire informazioni online riguardo a "cosa esca" fisicamente dall'uscita per contare gli rpm dalla ventola, ne a misurarla con un multimetro. Facendo un pò di prove, e inserendo le resistenze per creare un piccolo partitore riesco a leggere i valori su un max di circa 3v
-![Disegno partitore](https://github.com/agandini/fogduino/blob/main/img/part.png?raw=true)
+![Disegno partitore](https://github.com/agandini/fogduino/blob/main/img/part.PNG?raw=true)
 
 
 
