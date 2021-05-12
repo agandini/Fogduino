@@ -16,6 +16,11 @@ Pubblicazione tramite mqtt di dati relativi alla riduzione di "visibilità" dell
 - Sensore IR di fiamma KY-026
 - Vecchio alimentatore da PC 
 
+## Schema
+![Disegno dello schema progetto](https://github.com/agandini/fogduino/blob/master/fogduino_bb.jpg?raw=true)
+
+
+
 ## Links:
   - Board usata [ESP32](https://www.amazon.it/AZDelivery-sviluppo-successivo-versione-compatibile/dp/B08BTQ57ZV/ref=sr_1_5?__mk_it_IT=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=7S1HMAXV0GP4&dchild=1&keywords=esp32+azdelivery&qid=1616601484&sprefix=esp32+azd%2Caps%2C245&sr=8-5) (Il venditore ora propone una versione "graficamente" diversa, ma dovrebbe essere la stessa)
   - MQTT - http://mqtt.org/
