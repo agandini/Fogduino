@@ -1,7 +1,24 @@
 /*
-This file is part of fogduino which is released under GPLv3 license.
-See file LICENSE  or go to https://github.com/agandini/fogduino/blob/main/LICENSE for full license details.
+    Fogduino: a ESP8266 based prototype for generating fog
+    Copyright (C) 2021  andrea.gandini3@studenti.unimi.it
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+    This file is part of Fogduino which is released under GPLv3 license.
+    See file LICENSE or go to https://github.com/agandini/fogduino/blob/main/LICENSE for full license details.
 */
+
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <OneWire.h>
