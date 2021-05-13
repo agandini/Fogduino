@@ -20,7 +20,7 @@ Pubblicazione tramite mqtt di dati relativi alla riduzione di "visibilità" dell
 ![Disegno dello schema progetto](https://github.com/agandini/fogduino/blob/main/img/fogduino_bb.jpg?raw=true)
 
 Note: la Coil è da circa 1.3 Ohm, applicando 5v otteniamo circa 4 A, quindi siamo sui 20W di potenza.\
-Non sono riuscito a reperire informazioni online riguardo a "cosa esca" fisicamente dall'uscita per contare gli rpm dalla ventola, ne a misurarla con un multimetro. Facendo un pò di prove, e seguendo questo [schema](https://esp32.com/viewtopic.php?f=19&t=13679&sid=1309e637ad6137b20bef39852a5a2172&start=20) sembra arrivare un impulso a 12v e inserendo le resistenze per creare un piccolo partitore riesco a leggere i valori su un max di circa 3v, perfetti per l'esp32.\
+Non sono riuscito a reperire informazioni online riguardo a "cosa esca" fisicamente dall'uscita per contare gli rpm dalla ventola, ne a misurarla con un multimetro. Facendo un po' di prove, e seguendo questo [schema](https://esp32.com/viewtopic.php?f=19&t=13679&sid=1309e637ad6137b20bef39852a5a2172&start=20) senza utilizzare un condensatore (non a mia disposizione), i valori letti sembrano coerenti con reali valori di rpm plausibili per la ventola.\
 
 
 
