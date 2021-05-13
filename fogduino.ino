@@ -156,7 +156,7 @@ void firstStart() {
 }
 
 void aggiornaHW() { //aggiorna i dati letti dai sensori, quindi rpm, temp, fotoresistenza.
-    if (millis() - last > 200) {
+    if (millis() - last > 100) {
         last = millis();
         light = getLight();
         temp = getAirTemp();
@@ -177,8 +177,8 @@ float getAirTemp() {
 int getRpm() {
     start_time = millis();
     count = 0; //pulisco contatore prima di attesa
-    while ((millis() - start_time) <= 250) {} //dopo 1/4 secondo
-    return count * 120; //ho ricevuto 2 segnali per giro del fan, moltiplico per 120 e ho rpm
+    while ((millis() - start_time) <= 125) {} //dopo 1/4 secondo
+    return count * 240; //ho ricevuto 2 segnali per giro del fan, moltiplico per 120 e ho rpm
 }
 
 void setPWM(int pwmPerc) { // parametro come percentuale
@@ -186,7 +186,7 @@ void setPWM(int pwmPerc) { // parametro come percentuale
 }
 
 void pubblicaDati() { // invia tramite mqtt dati di stato ogni 3 secondi 
-    if (millis() - lastdata > 3000) {
+    if (millis() - lastdata > 2000) {
         lastdata = millis();
         //invia % pwm e rpm della ventola
         snprintf(msg, 100, "%d", fanpwm);
@@ -232,18 +232,22 @@ void mantieniErogazione(void * parameter) {
         if (isOn && mantenimento) { //se arriva la disattivazione del mantenimento, mi autokillo
             //mantengo il fumo: ventola al massimo a meno che la temperatura non stia calando
             Serial.println(tempRef - temp);
-            if (temp - tempRef < 4) {
+            if (temp - tempRef < 2) {  // se siamo a meno di 2 gradi di differenza rispetto all'ambiente
+                autopwm = 30;
+                msecOn = 700;
+                msecOff = 400;
+            } else if (temp - tempRef < 4) { // se siamo a meno di 4 gradi di differenza rispetto all'ambiente
                 autopwm = 50;
-                msecOn = 1000;
-                msecOff = 500;
-            } else if (temp - tempRef < 7) {
+                msecOn = 700;
+                msecOff = 600;
+            } else if (temp - tempRef < 6) { // se siamo a meno di 6 ...
                 autopwm = 70;
-                msecOn = 1000;
-                msecOff = 900;
-            } else {
+                msecOn = 700;
+                msecOff = 1000;
+            } else { // oltre 6 gradi di differenza rispetto all'ambiente dovrei aver raggiunto un punto abbastanza caldo da poter mantenere la temperatura con attivazioni piu lente
                 autopwm = 100;
-                msecOn = 1000;
-                msecOff = 1300;
+                msecOn = 700;
+                msecOff = 1400;
             }
             fanpwm = autopwm;
             setPWM(fanpwm);
@@ -326,6 +330,7 @@ void loop() {
         for (;;) { // stallo fino a riavvio
             delay(4000);
             client.publish("fogduino/status", "Stall on max fan mode...");
+            aggiornaHW();
             pubblicaDati();
         }
     }
