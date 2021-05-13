@@ -25,10 +25,9 @@ Non sono riuscito a reperire informazioni online riguardo a "cosa esca" fisicame
 ## Foto
 
 Primo piano sulla coil e sensore temperatura (girato al contrario!)
-![Coil](https://github.com/agandini/fogduino/blob/main/img/coil.jpg?raw=true)
 
 
-<img src="/img/coil.jpg" alt="coil" width="100">
+<img src="/img/coil.jpg" alt="coil" width="400">
 
 
 ## Links:
