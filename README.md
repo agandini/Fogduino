@@ -28,7 +28,7 @@ Primo piano sulla coil e sensore temperatura (girato al contrario!)
 ![Coil](https://github.com/agandini/fogduino/blob/main/img/coil.jpg?raw=true)
 
 
-<img src="\img\coil.jpg" alt="coil" width="200">
+<img src="\img\coil.jpg" alt="coil" width="100">
 
 
 ## Links:
