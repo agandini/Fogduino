@@ -23,11 +23,17 @@ Note: la Coil è da circa 1.3 Ohm, applicando 5v otteniamo circa 4 A, quindi sia
 Non sono riuscito a reperire informazioni online riguardo a "cosa esca" fisicamente dall'uscita per contare gli rpm dalla ventola, ne a misurarla con un multimetro. Facendo un po' di prove, e seguendo questo [schema](https://esp32.com/viewtopic.php?f=19&t=13679&sid=1309e637ad6137b20bef39852a5a2172&start=20) senza utilizzare un condensatore (non a mia disposizione), i valori letti sembrano coerenti con reali valori di rpm plausibili per la ventola.
 
 ## Foto
+Visione d'insieme del prototipo realizzato:
 
-Primo piano sulla coil e sensore temperatura (girato al contrario!)
+<img src="/img/Prototipo.jpg" alt="coil" width="1000"> <br/><br/>
+
+Primo piano sulla coil e sensore temperatura (girato al contrario!)<br/>
+
+<img src="/img/coil.jpg" alt="coil" width="350">
+
+  - Si possono notare i baffi in cotone della resistenza che vanno ad immergesi nel liquido da evaporare, che per effetto di capillarità tende a risalire fino al centro della coil. Con della colla a caldo ho realizzato una spece di vaschetta per contenerne un po'. Uso due morsetti per mantenere il contatto elettrrico tra la coil e i cavi.
 
 
-<img src="/img/coil.jpg" alt="coil" width="400">
 
 
 ## Links:
