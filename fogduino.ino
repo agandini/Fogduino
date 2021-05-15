@@ -60,9 +60,9 @@ volatile bool isOn, fire, mantenimento = false;
 bool coldStart = true;
 
 unsigned long last = 0;
-unsigned long lastMsg = 0;
+//unsigned long lastMsg = 0;
 unsigned long lastdata = 0;
-unsigned long lastOn = 0;
+//unsigned long lastOn = 0;
 
 void setup_wifi() {
     delay(10);
@@ -158,12 +158,12 @@ void reconnect() {
 void firstStart() {
     //se prima accensione, si ipotizza a freddo (non dopo un reset) allora riscaldo un pò la coil
     client.publish("fogduino/status", "Preriscaldamento in corso...");
-    fanpwm = 30;
+    fanpwm = 10;
     setPWM(fanpwm);
     digitalWrite(pinRelayCoil, LOW);
     Serial.print("Preriscaldamento coil, fan al :");
     Serial.println(fanpwm);
-    delay(2000);
+    delay(4000);
     digitalWrite(pinRelayCoil, HIGH);
     Serial.println("Ho spento la coil dopo il preriscaldamento");
     client.publish("fogduino/status", "Modalità mantenimento avviata");
@@ -177,7 +177,7 @@ void aggiornaHW() { //aggiorna i dati letti dai sensori, quindi rpm, temp, fotor
         last = millis();
         light = getLight();
         temp = getAirTemp();
-        fanrpm = getRpm(); //la getRPM "ruba" 250 ms circa di tempo, totale operaz. di aggiornamento HW circa 500ms
+        fanrpm = getRpm(); //la getRPM "ruba" 125 ms circa di tempo, totale operaz. di aggiornamento HW circa 250ms
     }
 }
 
@@ -194,8 +194,8 @@ float getAirTemp() {
 int getRpm() {
     start_time = millis();
     count = 0; //pulisco contatore prima di attesa
-    while ((millis() - start_time) <= 125) {} //dopo 1/4 secondo
-    return count * 240; //ho ricevuto 2 segnali per giro del fan, moltiplico per 120 e ho rpm
+    while ((millis() - start_time) <= 125) {} //dopo 1/8 secondo
+    return count * 240; //ho ricevuto 2 segnali per giro del fan, moltiplico per 240 e ho rpm 
 }
 
 void setPWM(int pwmPerc) { // parametro come percentuale
@@ -203,7 +203,7 @@ void setPWM(int pwmPerc) { // parametro come percentuale
 }
 
 void pubblicaDati() { // invia tramite mqtt dati di stato ogni 3 secondi 
-    if (millis() - lastdata > 2000) {
+    if (millis() - lastdata > 3000) {
         lastdata = millis();
         //invia % pwm e rpm della ventola
         snprintf(msg, 100, "%d", fanpwm);
@@ -216,22 +216,11 @@ void pubblicaDati() { // invia tramite mqtt dati di stato ogni 3 secondi
         Serial.println(msg);
         client.publish("fogduino/fan/rpm", msg);
 
-        //invia temperatura attuale e prima rilevazione
+        //invia temperatura attuale e luce
         snprintf(msg, 100, "%.1f", temp);
         Serial.print("Pub AirTemp: ");
         Serial.println(msg);
         client.publish("fogduino/coil", msg);
-
-        snprintf(msg, 100, "%.1f", tempRef);
-        Serial.print("Pub TempREF: ");
-        Serial.println(msg);
-        client.publish("fogduino/tempRef", msg);
-
-        //invia luce attuale e prima rilevazione
-        snprintf(msg, 100, "%.1f", lightRef);
-        Serial.print("Pub lightRef: ");
-        Serial.println(msg);
-        client.publish("fogduino/lightRef", msg);
 
         snprintf(msg, 100, "%d", (int) light);
         Serial.print("Pub light: ");
@@ -242,29 +231,31 @@ void pubblicaDati() { // invia tramite mqtt dati di stato ogni 3 secondi
 }
 
 void mantieniErogazione(void * parameter) {
-    //se attivo il mantenimento allora eseguo
     int msecOn, msecOff = 1000;
     int autopwm = 50;
     for (;;) {
-        if (isOn && mantenimento) { //se arriva la disattivazione del mantenimento, mi autokillo
-            //mantengo il fumo: ventola al massimo a meno che la temperatura non stia calando
+        if (isOn && mantenimento) {
             Serial.println(tempRef - temp);
             if (temp - tempRef < 2) {  // se siamo a meno di 2 gradi di differenza rispetto all'ambiente
-                autopwm = 30;
-                msecOn = 700;
-                msecOff = 400;
+                autopwm = 20;
+                msecOn = 1300;
+                msecOff = 200;
             } else if (temp - tempRef < 4) { // se siamo a meno di 4 gradi di differenza rispetto all'ambiente
-                autopwm = 50;
-                msecOn = 700;
-                msecOff = 600;
+                autopwm = 30;
+                msecOn = 1200;
+                msecOff = 300;
             } else if (temp - tempRef < 6) { // se siamo a meno di 6 ...
+                autopwm = 50;
+                msecOn = 1100;
+                msecOff = 400;
+            } else if (temp - tempRef < 7) { // se siamo a meno di 7 ...
                 autopwm = 70;
-                msecOn = 700;
-                msecOff = 1000;
-            } else { // oltre 6 gradi di differenza rispetto all'ambiente dovrei aver raggiunto un punto abbastanza caldo da poter mantenere la temperatura con attivazioni piu lente
+                msecOn = 900;
+                msecOff = 600;
+            }else { // oltre 7 gradi di differenza rispetto all'ambiente dovrei aver raggiunto un punto abbastanza caldo da poter mantenere la temperatura con attivazioni piu lente
                 autopwm = 100;
-                msecOn = 700;
-                msecOff = 1400;
+                msecOn = 500;
+                msecOff = 1000;
             }
             fanpwm = autopwm;
             setPWM(fanpwm);
@@ -278,11 +269,8 @@ void mantieniErogazione(void * parameter) {
     }
 }
 
-void counterRPM() {
-    count++;
-} //procedura chiamata da interrupt su tachometer della ventola
-void flame() {
-    fire = true;
+void counterRPM() { count++; } //procedura chiamata da interrupt su tachometer della ventola
+void flame() {fire = true;
 } //interrupt su sensore fiamma
 
 void setup() {
@@ -297,7 +285,7 @@ void setup() {
     tempRef = getAirTemp();
 
     //Settaggio per lettura rpm e pwm ventola
-    pinMode(pinFanRPM, INPUT_PULLUP); //oltre al pullup lato HW, se setto il pin a pullup interno i valori sembrano più precisi
+    pinMode(pinFanRPM, INPUT); //oltre al pullup lato HW, se setto il pin a pullup interno i valori sembrano più precisi
     ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOUTION);
     ledcAttachPin(pinFanPWM, PWM_CHANNEL);
     attachInterrupt(digitalPinToInterrupt(pinFanRPM), counterRPM, RISING); //tramite interrupt rilevo segnale da "tachimetro" del fan
@@ -322,6 +310,12 @@ void setup() {
         0); // Core you want to run the task on (0 or 1)
 
     reconnect(); //connetti a mqtt
+    //invia luce e temp ambientali
+    snprintf(msg, 100, "%.1f", tempRef); 
+    client.publish("fogduino/tempRef", msg);
+    snprintf(msg, 100, "%.1f", lightRef);
+    client.publish("fogduino/lightRef", msg);
+     
 }
 
 void loop() {
@@ -334,7 +328,7 @@ void loop() {
     aggiornaHW();
 
     if (isOn) {
-       // if (coldStart) firstStart();
+        if (coldStart) firstStart();
         pubblicaDati();
     }
 
@@ -347,7 +341,7 @@ void loop() {
         for (;;) { // stallo fino a riavvio
             delay(4000);
             client.publish("fogduino/status", "Stall on max fan mode...");
-            aggiornaHW();
+            aggiornaHW(); //invio cmq dati 
             pubblicaDati();
         }
     }
